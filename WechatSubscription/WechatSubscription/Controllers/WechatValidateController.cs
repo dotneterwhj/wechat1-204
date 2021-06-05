@@ -75,7 +75,7 @@ namespace WechatSubscription.Controllers
                         var contents = "";
                         foreach (var reminder in _wechatDbContext.Reminders)
                         {
-                            contents += $"下一次pp棉滤芯更换的时间为:{reminder.NextRemindTime.ToString("yyyy-MM-dd")}，还剩{(reminder.NextRemindTime - DateTime.Now).Days}天\r";
+                            contents += $"下一次{reminder.Name}的时间为:{reminder.NextRemindTime.ToString("yyyy-MM-dd")}，还剩{(reminder.NextRemindTime - DateTime.Now).Days}天\r";
                         }
                         
                         wechatMessage = new WechatSendTextMessage()
