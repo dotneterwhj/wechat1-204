@@ -1,10 +1,12 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using WechatSubscription.DbContexts;
 using WechatSubscription.Enums;
 using WechatSubscription.Helpers;
 using WechatSubscription.Models;
@@ -15,9 +17,12 @@ namespace WechatSubscription.Controllers
     [ApiController]
     public class WechatValidateController : ControllerBase
     {
-        public WechatValidateController(IConfiguration configuration)
+        private readonly WechatDbContext _wechatDbContext;
+
+        public WechatValidateController(IConfiguration configuration, WechatDbContext wechatDbContext)
         {
             Configuration = configuration;
+            this._wechatDbContext = wechatDbContext;
         }
 
         public IConfiguration Configuration { get; }
@@ -67,18 +72,17 @@ namespace WechatSubscription.Controllers
                 {
                     if (dic["Content"] == "1")
                     {
-                        var ppExpireTime = new DateTime(2021, 9, 1);
-                        var udExpireTime = new DateTime(2021, 12, 1);
-                        var roExpireTime = new DateTime(2022, 12, 1);
-                        var prExpireTime = new DateTime(2021, 6, 15);
+                        var contents = "";
+                        foreach (var reminder in _wechatDbContext.Reminders)
+                        {
+                            contents += $"下一次pp棉滤芯更换的时间为:{reminder.NextRemindTime.ToString("yyyy-MM-dd")}，还剩{(reminder.NextRemindTime - DateTime.Now).Days}天\r";
+                        }
+                        
                         wechatMessage = new WechatSendTextMessage()
                         {
                             FromUserName = dic["ToUserName"],
                             ToUserName = dic["FromUserName"],
-                            Content = $"下一次pp棉滤芯更换的时间为:{ppExpireTime.ToString("yyyy-MM-dd")}，还剩{(ppExpireTime - DateTime.Now).Days}天\r" +
-                            $"下一次活性炭滤芯更换的时间为:{udExpireTime.ToString("yyyy-MM-dd")}，还剩{(udExpireTime - DateTime.Now).Days}天\r" +
-                            $"下一次RO反渗透膜更换的时间为:{roExpireTime.ToString("yyyy-MM-dd")}，还剩{(roExpireTime - DateTime.Now).Days}天\r" +
-                            $"下一次前置过滤器清洗的时间为:{prExpireTime.ToString("yyyy-MM-dd")}，还剩{(prExpireTime - DateTime.Now).Days}天\r"
+                            Content = contents.Trim('\r')
                         };
                     }
                     else if (dic["Content"] == "2")
