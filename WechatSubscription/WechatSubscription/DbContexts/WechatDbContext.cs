@@ -16,6 +16,7 @@ namespace WechatSubscription.DbContexts
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
+            return;
             modelBuilder.Entity<Reminder>().HasData(
                 new Reminder
                 {
@@ -26,8 +27,8 @@ namespace WechatSubscription.DbContexts
                     IntervalDays = 90,
                     CreateTime = DateTime.Now,
                     LastModifyTime = DateTime.Now,
-                    Creator = 1,
-                    LastModifer = 1,
+                    Creator = "1",
+                    LastModifer = "1",
                     IsDelete = false
                 },
                 new Reminder
@@ -39,8 +40,8 @@ namespace WechatSubscription.DbContexts
                     IntervalDays = 180,
                     CreateTime = DateTime.Now,
                     LastModifyTime = DateTime.Now,
-                    Creator = 1,
-                    LastModifer = 1,
+                    Creator = "1",
+                    LastModifer = "1",
                     IsDelete = false
                 }
             );
