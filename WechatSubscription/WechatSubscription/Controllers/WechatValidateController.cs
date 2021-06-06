@@ -77,7 +77,7 @@ namespace WechatSubscription.Controllers
                         foreach (var reminder in _wechatDbContext.Reminders.Where(r => !r.IsDelete))
                         {
                             TimeSpan timeSpan = new TimeSpan(reminder.NextRemindTime.Ticks - DateTime.Now.Ticks);
-                            contents += $"Id={reminder.Id},下一次{reminder.Name}的时间为:{reminder.NextRemindTime.ToString("yyyy-MM-dd")}，还剩{timeSpan.Days}天\r";
+                            contents += $"Id={reminder.Id},下一次{reminder.Name}的时间为:{reminder.NextRemindTime.ToString("yyyy-MM-dd")}，还剩{Math.Ceiling(timeSpan.TotalDays)}天\r";
                         }
 
                         if (string.IsNullOrEmpty(contents))
