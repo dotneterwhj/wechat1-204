@@ -14,6 +14,7 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using WechatSubscription.DbContexts;
+using WechatSubscription.WechatAPI;
 
 namespace WechatSubscription
 {
@@ -33,11 +34,15 @@ namespace WechatSubscription
             {
                 options.UseSqlite("FileName=" + Path.Combine(AppContext.BaseDirectory, "wechat.db"));
             });
-        }
 
+            services.AddTransient<WechatMenuApi>();
+
+        }
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
-        public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
+        public void Configure(IApplicationBuilder app, IWebHostEnvironment env, IConfiguration configuration, IServiceProvider serviceProvider)
         {
+            IntialSettings(serviceProvider, configuration);
+
             if (env.IsDevelopment())
             {
                 app.UseDeveloperExceptionPage();
@@ -51,6 +56,21 @@ namespace WechatSubscription
             {
                 endpoints.MapControllers();
             });
+        }
+
+        public void IntialSettings(IServiceProvider serviceProvider, IConfiguration configuration)
+        {
+            WechatContrants.Appid = configuration.GetSection("WechatSetting:Appid").Value;
+            WechatContrants.WechatToken = configuration.GetSection("WechatSetting:WeChatToken").Value;
+            WechatContrants.Secret = configuration.GetSection("WechatSetting:Secret").Value;
+            WechatContrants.GrantType = configuration.GetSection("WechatSetting:GrantType").Value;
+
+            //var menuApi = serviceProvider.GetService<WechatMenuApi>();
+
+            //menuApi.DeleteMenuAsync().ConfigureAwait(false).GetAwaiter().GetResult();
+
+            //menuApi.CreateMenuAsync().ConfigureAwait(false).GetAwaiter().GetResult();
+
         }
     }
 }

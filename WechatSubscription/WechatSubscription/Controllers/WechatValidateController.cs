@@ -10,6 +10,8 @@ using WechatSubscription.DbContexts;
 using WechatSubscription.Enums;
 using WechatSubscription.Helpers;
 using WechatSubscription.Models;
+using WechatSubscription.WechatAPI;
+using WechatSubscription.WechatTemplateMessage;
 
 namespace WechatSubscription.Controllers
 {
@@ -19,9 +21,8 @@ namespace WechatSubscription.Controllers
     {
         private readonly WechatDbContext _wechatDbContext;
 
-        public WechatValidateController(IConfiguration configuration, WechatDbContext wechatDbContext)
+        public WechatValidateController(WechatDbContext wechatDbContext)
         {
-            Configuration = configuration;
             this._wechatDbContext = wechatDbContext;
         }
 
@@ -43,7 +44,7 @@ namespace WechatSubscription.Controllers
 
             List<string> lists = new List<string>();
 
-            lists.Add(Configuration.GetSection("WeChatToken").Value);
+            lists.Add(WechatContrants.WechatToken);
             lists.Add(wechatSign.Timestamp);
             lists.Add(wechatSign.Nonce);
 
@@ -73,17 +74,7 @@ namespace WechatSubscription.Controllers
                     var userContent = dic["Content"].Trim(' ');
                     if (userContent == "1")
                     {
-                        var contents = "";
-                        foreach (var reminder in _wechatDbContext.Reminders.Where(r => !r.IsDelete))
-                        {
-                            TimeSpan timeSpan = new TimeSpan(reminder.NextRemindTime.Ticks - DateTime.Now.Ticks);
-                            contents += $"Id={reminder.Id},下一次{reminder.Name}的时间为:{reminder.NextRemindTime.ToString("yyyy-MM-dd")}，还剩{Math.Ceiling(timeSpan.TotalDays)}天\r";
-                        }
-
-                        if (string.IsNullOrEmpty(contents))
-                        {
-                            contents = "暂无提醒事项\r回复【2 事项 周期】设置提醒事项\r\t例：2 打扫卫生 7\r\t表示每隔7天提醒打扫卫生";
-                        }
+                        string contents = GetReminders();
 
                         wechatMessage = new WechatSendTextMessage()
                         {
@@ -100,19 +91,19 @@ namespace WechatSubscription.Controllers
                             ToUserName = dic["FromUserName"]
                         };
                         var tempArray = userContent.Split(" ");
-                        if (tempArray.Length != 3)
+                        if (tempArray.Length < 3)
                         {
-                            ((WechatSendTextMessage)wechatMessage).Content = "您输入的格式不正确，例：2 打扫房间 7";
+                            ((WechatSendTextMessage)wechatMessage).Content = WechatTemplateReminder.Example2Template;
                         }
                         else
                         {
                             if (!int.TryParse(tempArray[2], out int remindDays))
                             {
-                                ((WechatSendTextMessage)wechatMessage).Content = "您输入的格式不正确，例：2 打扫房间 7";
+                                ((WechatSendTextMessage)wechatMessage).Content = WechatTemplateReminder.Example2Template;
                             }
                             else
                             {
-                                await _wechatDbContext.Reminders.AddAsync(new EFModels.Reminder
+                                var reminderAdd = new EFModels.Reminder
                                 {
                                     Name = tempArray[1],
                                     PreRemindTime = DateTimeOffset.Now,
@@ -123,7 +114,18 @@ namespace WechatSubscription.Controllers
                                     LastModifyTime = DateTimeOffset.Now,
                                     LastModifer = dic["FromUserName"],
                                     IsDelete = false
-                                });
+                                };
+
+                                if (tempArray.Length >= 4)
+                                {
+                                    if (DateTime.TryParse(tempArray[3], out DateTime nextTime))
+                                    {
+                                        reminderAdd.PreRemindTime = new DateTimeOffset(nextTime.AddDays(-1 * remindDays));
+                                        reminderAdd.NextRemindTime = new DateTimeOffset(nextTime);
+                                    }
+                                }
+
+                                await _wechatDbContext.Reminders.AddAsync(reminderAdd);
 
                                 await _wechatDbContext.SaveChangesAsync();
 
@@ -141,13 +143,13 @@ namespace WechatSubscription.Controllers
                         var tempArray = userContent.Split(" ");
                         if (tempArray.Length != 2)
                         {
-                            ((WechatSendTextMessage)wechatMessage).Content = "您输入的格式不正确，例：3 2";
+                            ((WechatSendTextMessage)wechatMessage).Content = WechatTemplateReminder.Example3Template;
                         }
                         else
                         {
                             if (!int.TryParse(tempArray[1], out int findId))
                             {
-                                ((WechatSendTextMessage)wechatMessage).Content = "您输入的格式不正确，例：3 2";
+                                ((WechatSendTextMessage)wechatMessage).Content = WechatTemplateReminder.Example3Template;
                             }
                             var findReminder = await _wechatDbContext.Reminders.AsNoTracking().Where(r => r.Id == findId).FirstOrDefaultAsync();
                             if (findReminder != null)
@@ -172,12 +174,7 @@ namespace WechatSubscription.Controllers
                         {
                             FromUserName = dic["ToUserName"],
                             ToUserName = dic["FromUserName"],
-                            Content = "感谢您的订阅\r" +
-                            "回复【1】查看最近提醒事项\r" +
-                            "回复【2 事项 周期】设置提醒事项\r" +
-                            "\t(举例：2 打扫房间 7)\r\t表示每隔7天提醒打扫房间\r" +
-                            "回复【3 Id】删除提醒事项\r" +
-                            "\t(举例：3 2)\r\t表示删除Id=2的提醒事项"
+                            Content = "感谢您的订阅\r" + WechatTemplateReminder.RemindTemplate
                         };
                     }
                     else if (dic["Event"] == "unsubscribe")
@@ -189,6 +186,29 @@ namespace WechatSubscription.Controllers
                             Content = "再见..."
                         };
                     }
+                    else if (dic["Event"] == WechatMenuType.Click.ToString().ToLower())
+                    {
+                        if (dic["EventKey"] == "helper_key")
+                        {
+                            wechatMessage = new WechatSendTextMessage()
+                            {
+                                FromUserName = dic["ToUserName"],
+                                ToUserName = dic["FromUserName"],
+                                Content = WechatTemplateReminder.RemindTemplate
+                            };
+                        }
+                        else if (dic["EventKey"] == "reminder_key")
+                        {
+                            string contents = GetReminders();
+
+                            wechatMessage = new WechatSendTextMessage()
+                            {
+                                FromUserName = dic["ToUserName"],
+                                ToUserName = dic["FromUserName"],
+                                Content = contents.Trim('\r')
+                            };
+                        }
+                    }
                 }
 
                 var xmlSendStr = XmlHelper.ObjectToXmlSerializer(wechatMessage);
@@ -197,6 +217,23 @@ namespace WechatSubscription.Controllers
             }
 
             return Ok();
+        }
+
+        private string GetReminders()
+        {
+            var contents = "";
+            foreach (var reminder in _wechatDbContext.Reminders.Where(r => !r.IsDelete))
+            {
+                TimeSpan timeSpan = new TimeSpan(reminder.NextRemindTime.Ticks - DateTime.Now.Ticks);
+                contents += $"Id={reminder.Id},下一次{reminder.Name}的时间为:{reminder.NextRemindTime.ToString("yyyy-MM-dd")}，还剩{Math.Ceiling(timeSpan.TotalDays)}天\r";
+            }
+
+            if (string.IsNullOrEmpty(contents))
+            {
+                contents = "暂无提醒事项\r" + WechatTemplateReminder.Reply2Template;
+            }
+
+            return contents;
         }
     }
 }

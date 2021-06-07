@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "BackgroundJob": {
+      "commandName": "Project"
+    },
+    "Docker": {
+      "commandName": "Docker"
+    }
+  }
+}

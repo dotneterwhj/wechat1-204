@@ -28,7 +28,7 @@ namespace BackgroundJob
                 .WithIdentity("reminderTrigger", "reminderGroup")
                 .StartNow()
                 .WithSimpleSchedule(x => x
-                    .WithIntervalInSeconds(5)
+                    .WithIntervalInHours(24)
                     .RepeatForever())
             .Build();
 
